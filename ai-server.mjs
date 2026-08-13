@@ -233,7 +233,7 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(404); res.end('Not Found');
 });
 
-server.listen(PORT, '127.0.0.1', () => {
+server.listen(PORT, '0.0.0.0', () => {
   const hasKey = !!loadKey();
   console.log(`AI 接口已启动: http://127.0.0.1:${PORT}/analyze 和 /report`);
   console.log(`模型: ${MODEL}`);

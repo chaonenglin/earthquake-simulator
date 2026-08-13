@@ -2268,8 +2268,7 @@ body {
             try {
                 const aiMag = mag, aiDepth = depth, aiEpic = getEpicenterName(lat, lon);
                 const aiMaxTarget = quake.cachedTargetInts.reduce((a, b) => Math.max(a, b), 0);
-                fetch('http://127.0.0.1:9000/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mag: aiMag, depth: aiDepth, epicenter: aiEpic, maxIntName: getIntName(aiMaxTarget) }) })
-                    .then(r => r.json())
+                aiCall('analyze', { mag: aiMag, depth: aiDepth, epicenter: aiEpic, maxIntName: getIntName(aiMaxTarget) })
                     .then(res => { if (res && res.advice) { showAIAnalysis(res); } })
                     .catch(() => {});
             } catch(e) {}
@@ -2565,6 +2564,66 @@ body {
                 sub.start(t0); sub.stop(t0 + 1.0);
             } catch(e) {}
         }
+
+        // ---- 前端直连 DeepSeek（公网可用，key 存浏览器本地） ----
+        const DEEPSEEK_CFG = { url: 'https://api.deepseek.com/chat/completions', model: 'deepseek-chat' };
+        function getApiKey() { try { return localStorage.getItem('deepseek_key') || ''; } catch(e) { return ''; } }
+        function saveApiKey(k) { try { localStorage.setItem('deepseek_key', k); } catch(e) {} }
+
+        function aiBuildPrompts(kind, d) {
+            const cityList = '北京、上海、广州、深圳、成都、重庆、杭州、武汉、西安、南京、天津、苏州、长沙、郑州、青岛、宁波、无锡、佛山、东莞、合肥、福州、厦门、昆明、大连、沈阳、济南、石家庄、哈尔滨、长春、南昌等中国一线及二线城市，以及东京、大阪、名古屋、横滨、福冈、札幌、京都、神户、川崎、广岛、仙台、新潟等日本大城市';
+            if (kind === 'analyze') {
+                return {
+                    system: '你是专业的地震应急指挥播报员。请根据输入的地震参数，完成两件事：1. 估计灾难级别（用：轻微/中等/重大/特重大 四级，并给出 1~4 的 levelCode）。2. 用中文写一段简洁、口语化、适合语音播报的应急措施（60字以内，不要用序号）。只输出 JSON：{"level":"重大","levelCode":3,"advice":"..."}',
+                    user: '地震参数如下：震级：M' + (d.mag||'?') + '、震源深度：' + (d.depth||'?') + ' km、震源位置：' + (d.epicenter||'未知') + '、预计最大震度：' + (d.maxIntName||'未知') + '。请评估灾难级别并给出应急措施播报。',
+                };
+            }
+            if (kind === 'social') {
+                const cn = [['应急管理部','gov','你是应急管理部发言人，发布一条地震应急处置的政府决策。'],['当地政府','gov','你是受灾地政府发言人，发布一条当地应急动员与决策。'],['央视新闻','media','你是央视新闻记者，播报一条地震最新新闻快讯。'],['新华社','media','你是新华社记者，发布一条地震权威快讯。'],['地震专家','expert','你是地震专家，对本次地震做一句专业解读与提醒。'],['民间救援队','civil','你是民间救援队负责人，播报救援行动进展与呼吁。'],['网络舆情','civil','你是社交媒体地震信息汇总，播报公众关注点与传言澄清。']];
+                const jp = [['気象庁','gov','你是日本气象厅，发布紧急地震速报。'],['内閣府','gov','你是日本内阁府灾害对策本部，发布政府应对决策。'],['地方自治体','gov','你是受灾地自治体，发布避难指示与应对。'],['NHK','media','你是NHK新闻，播报地震最新ニュース速報。'],['共同通信社','media','你是共同通信社，发布地震ニュース速報。'],['地震学者','expert','你是地震学者，对本次地震做专业解説と注意喚起。'],['消防・自衛隊','civil','你是消防/自卫队，播报救援活动进展。'],['SNS','civil','你是日本社交媒体上的地震情報まとめ。']];
+                const roles = d.region === 'japan' ? jp : cn;
+                const r = roles[Math.floor(Math.random() * roles.length)];
+                const isJp = d.region === 'japan';
+                return {
+                    system: '你是地震应急播报系统中的「' + r[0] + '」。' + r[2] + (isJp ? '用日语播报，70字以内，同时输出简体中文翻译 subtitle。只输出 JSON：{"role":"' + r[0] + '","content":"日语播报","subtitle":"中文翻译"}' : '用中文，70字以内，直接说播报内容。只输出 JSON：{"role":"' + r[0] + '","content":"..."}'),
+                    user: '当前地震情况：震级 M' + (d.mag||'?') + '，震源 ' + (d.epicenter||'未知') + '，最大震度 ' + (d.maxIntName||'未知') + '，受灾区域：' + (d.affectedAreas||'暂无'),
+                };
+            }
+            if (kind === 'chat') {
+                const isJp = d.region === 'japan';
+                const base = isJp
+                    ? '你是日本网友在地震发生时于 LINE / X(推特) 上的群聊。模拟 12~15 个日本网友的聊天，要有真实群聊感：网友之间互相回复、接话。内容按灾情发展递进。务必根据最大震度调整语气与互动：震度7 → 极度恐慌、互相报平安、互诉经历；震度5~6 → 惊慌但有序、互相询问安危、分享震感；震度3~4 → 淡定调侃、互相开玩笑、聊无关话题；震度1~2 → 轻微反应、互相吐槽、闲聊。可以提到手机緊急地震速報、NHK、Yahoo!防災 App、避难所等。全部用简体中文输出。'
+                    : '你是中国网友在地震发生时于微信群/微博上的群聊。模拟 12~15 个中国网友的聊天，要有真实群聊感：网友之间互相回复、接话。内容按灾情发展递进。务必根据最大震度调整语气与互动：震度7 → 极度恐慌、互相报平安、互诉经历；震度5~6 → 惊慌但有序、互相询问安危、分享震感；震度3~4 → 淡定调侃、互相开玩笑、聊无关话题；震度1~2 → 轻微反应、互相吐槽、闲聊。可以提到小米/华为/OPPO 手机预警、小米电视、小爱同学、地震预警 App、朋友圈等。用简体中文。';
+                return {
+                    system: base + '只输出 JSON：{"messages":[{"user":"网友昵称","text":"聊天内容"},...]}，12~15 条，每条 25 字以内，昵称各不相同且像真实网名。',
+                    user: '当前地震：震级 M' + (d.mag||'?') + '，震源 ' + (d.epicenter||'未知') + '，最大震度 ' + (d.maxIntName||'未知') + '，受灾区域：' + (d.affectedAreas||'暂无'),
+                };
+            }
+            if (kind === 'casualty') {
+                return {
+                    system: '你是地震灾害损失评估专家。根据已经受灾的区域及其震度，预估人口伤亡和财产损失。评估时务必考虑区域类型：' + cityList + '的城区人口密度高、经济总量大，同等震度下伤亡和损失比中小城市高 1~2 个数量级。参考量级：一二线城市核心区震度7 → 损失数万亿元、伤亡数万至数十万；震度6强 → 损失数千亿元、伤亡数千至数万；震度6弱 → 损失数百亿元、伤亡数百至数千；中小城市或农村震度5~6 → 损失数十至数百亿元、伤亡数十至数百。只输出 JSON：{"deaths":"约X人","injuries":"约X人","loss":"约X亿元"}',
+                    user: '已受灾区域及震度：' + (d.affectedDetail || '暂无受灾区域'),
+                };
+            }
+            return { system: '', user: '' };
+        }
+
+        async function aiCall(kind, d) {
+            const key = getApiKey();
+            if (!key) return null;
+            const p = aiBuildPrompts(kind, d);
+            try {
+                const r = await fetch(DEEPSEEK_CFG.url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+                    body: JSON.stringify({ model: DEEPSEEK_CFG.model, messages: [{ role: 'system', content: p.system }, { role: 'user', content: p.user }], response_format: { type: 'json_object' }, max_tokens: 600 }),
+                });
+                if (!r.ok) return null;
+                const data = await r.json();
+                const content = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '{}';
+                return JSON.parse(content.replace(/```json|```/g, '').trim());
+            } catch(e) { return null; }
+        }
         function getIntName(v) { if(v>=6.5)return'震度7'; if(v>=6.0)return'震度6强'; if(v>=5.5)return'震度6弱'; if(v>=5.0)return'震度5强'; if(v>=4.5)return'震度5弱'; return '震度' + Math.max(0, Math.round(v)); }
         function speak(text) {
             if (isMuted) return;
@@ -2614,8 +2673,7 @@ body {
                 region: (typeof currentRegion !== 'undefined') ? currentRegion : 'japan',
                 affectedAreas: (typeof strongWarnedAreas !== 'undefined' && strongWarnedAreas.size > 0) ? Array.from(strongWarnedAreas).slice(0, 5).join('、') : '暂无',
             };
-            fetch('http://127.0.0.1:9000/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) })
-                .then(r => r.json())
+            aiCall('chat', d)
                 .then(res => { if (res && res.messages && res.messages.length) showChat(res.messages); })
                 .catch(() => {})
                 .finally(() => { chatTimer = setTimeout(chatLoop, 6000 + Math.random() * 6000); });
@@ -2634,8 +2692,7 @@ body {
             if (affected.size === 0) { casualtyTimer = setTimeout(casualtyLoop, 5000); return; }
             const sorted = Array.from(affected.entries()).sort((a, b) => b[1] - a[1]);
             const affectedDetail = sorted.map(([n, i]) => n + getIntName(i)).join('、');
-            fetch('http://127.0.0.1:9000/casualty', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ affectedDetail }) })
-                .then(r => r.json())
+            aiCall('casualty', { affectedDetail })
                 .then(res => {
                     if (res) {
                         const cEl = document.getElementById('ib-casualty');
@@ -2669,8 +2726,7 @@ body {
                 region: (typeof currentRegion !== 'undefined') ? currentRegion : 'japan',
                 affectedAreas: (typeof strongWarnedAreas !== 'undefined' && strongWarnedAreas.size > 0) ? Array.from(strongWarnedAreas).slice(0, 5).join('、') : '暂无',
             };
-            fetch('http://127.0.0.1:9000/social', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) })
-                .then(r => r.json())
+            aiCall('social', d)
                 .then(res => { if (res && res.content) { showSocial(res); speak(res.content); } })
                 .catch(() => {})
                 .finally(() => { socialTimer = setTimeout(socialLoop, 8000 + Math.random() * 7000); });
@@ -2723,10 +2779,9 @@ body {
         function setApiKey() {
             const key = prompt('请输入 DeepSeek API Key（sk-开头）：');
             if (!key) return;
-            fetch('http://127.0.0.1:9000/setkey', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: key }) })
-                .then(r => r.json())
-                .then(res => { if (res.ok) { speak('API设置成功'); alert('API Key 已保存'); } else { alert('保存失败：' + (res.error || '')); } })
-                .catch(() => alert('无法连接 AI 服务，请确认后端已启动（端口 9000）'));
+            saveApiKey(key);
+            if (getApiKey()) { speak('API设置成功'); alert('API Key 已保存到浏览器本地，AI 功能立即可用'); }
+            else { alert('保存失败：浏览器本地存储不可用'); }
         }
         function toggleMute() { 
             initAudio(); 
