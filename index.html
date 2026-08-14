@@ -1874,6 +1874,7 @@ body {
             loadingEl.style.display = 'flex';
             updateLoading(5, '正在切换区域…');
             try {
+                faultPath = null;
                 updateLoading(10, '正在加载地图数据…');
                 const mapRes = await fetch(cfg.mapFile, { signal: AbortSignal.timeout(25000) });
                 if (mapRes.ok) processGeoJSON(await mapRes.json());
@@ -1882,10 +1883,9 @@ body {
                 const stRes = await fetch(cfg.stationFile, { signal: AbortSignal.timeout(25000) });
                 if (stRes.ok) processStationData(await stRes.json());
                 updateLoading(85, '观测点加载完成');
-                faultPath = null;
                 if (cfg.faultFile) {
                     updateLoading(88, '正在加载断层数据…');
-                    try { const fr = await fetch(cfg.faultFile, { signal: AbortSignal.timeout(25000) }); if (fr.ok) processFaultData(await fr.json()); } catch(e) {}
+                    try { const fr = await fetch(cfg.faultFile, { signal: AbortSignal.timeout(25000) }); if (fr.ok) { processFaultData(await fr.json()); initMap(); } } catch(e) {}
                 }
                 epicenterFeatures = [];
                 if (cfg.epicFile) {
@@ -2276,7 +2276,7 @@ body {
             if(!isUserInteracting) { targetCam.x = v.x; targetCam.y = v.y; targetCam.zoom = Math.min(width, height) / (L_px > 0 ? Math.max(L_px * 2.5, 150) : 150); }
             
             switchTab('sim'); guideOverlay.classList.add('hidden'); 
-            playSrev("issue");
+            playSrev("issue"); playSrev("hypocenter");
             try {
                 const aiMag = mag, aiDepth = depth, aiEpic = getEpicenterName(lat, lon);
                 const aiMaxTarget = quake.cachedTargetInts.reduce((a, b) => Math.max(a, b), 0);
@@ -2538,11 +2538,12 @@ body {
             if (arrivalAlertTimeout) clearTimeout(arrivalAlertTimeout);
             arrivalAlertTimeout = setTimeout(() => { pop.style.display = 'none'; }, 3000);
         }
-        function playFutureAlarm() {
+        function playFutureAlarm(v) {
             const now = performance.now();
             if (now - lastFutureAlarmTime < 1200) return;
             lastFutureAlarmTime = now;
-            playSrev('shindo6');
+            playSrev(v >= 5.5 ? 'shindo6' : (v >= 4.5 ? 'shindo5' : 'shindo4'));
+            if (v !== undefined && v < 5.5) return;
             if (isMuted || !audioCtx) return;
             try {
                 const t0 = audioCtx.currentTime;
@@ -2983,7 +2984,7 @@ body {
                     const smoothingFactor = Math.min(1.0, 0.2 * playSpeed); 
                     st.currentInt += (Math.max(0, limitedInt) - st.currentInt) * smoothingFactor; 
                     if (st.currentInt > st.maxInt) st.maxInt = st.currentInt;
-                    if (st.area && st.maxInt >= 5.5) { const sKey = st.area.name.replace(/\s+/g, ''); if (!strongWarnedAreas.has(sKey)) { strongWarnedAreas.add(sKey); playFutureAlarm(); } }
+                    if (st.area && st.maxInt >= 4.5) { const sKey = st.area.name.replace(/\s+/g, ''); if (!strongWarnedAreas.has(sKey)) { strongWarnedAreas.add(sKey); playFutureAlarm(st.maxInt); } }
                     if(st.currentInt > maxIntObserved) maxIntObserved = st.currentInt;
 
 
@@ -3014,7 +3015,7 @@ body {
                         let limitedInt = applyShindoLimiter(finalInt);
                         st.simInt += (Math.max(0, limitedInt) - st.simInt) * Math.min(1.0, 0.2 * playSpeed);
                         if (st.simInt > st.simMaxInt) st.simMaxInt = st.simInt;
-                        if (st.area && st.simMaxInt >= 5.5) { const sKey = st.area.name.replace(/\s+/g, ''); if (!strongWarnedAreas.has(sKey)) { strongWarnedAreas.add(sKey); playFutureAlarm(); } }
+                        if (st.area && st.simMaxInt >= 4.5) { const sKey = st.area.name.replace(/\s+/g, ''); if (!strongWarnedAreas.has(sKey)) { strongWarnedAreas.add(sKey); playFutureAlarm(st.simMaxInt); } }
                     }
                 }
 
@@ -3079,7 +3080,7 @@ body {
                         let limitedInt = applyShindoLimiter(finalInt);
                         st.simInt += (Math.max(0, limitedInt) - st.simInt) * Math.min(1.0, 0.2 * playSpeed);
                         if (st.simInt > st.simMaxInt) st.simMaxInt = st.simInt;
-                        if (st.area && st.simMaxInt >= 5.5) { const sKey = st.area.name.replace(/\s+/g, ''); if (!strongWarnedAreas.has(sKey)) { strongWarnedAreas.add(sKey); playFutureAlarm(); } }
+                        if (st.area && st.simMaxInt >= 4.5) { const sKey = st.area.name.replace(/\s+/g, ''); if (!strongWarnedAreas.has(sKey)) { strongWarnedAreas.add(sKey); playFutureAlarm(st.simMaxInt); } }
                     }
                 }
                 for(let st of stations) if(st.currentInt > maxIntObserved) maxIntObserved = st.currentInt; 
@@ -3243,7 +3244,12 @@ body {
                 const s = targetSt; const boxX = s.vx; const boxY = s.vy - 45/cam.zoom; let val = (displayMode === 'real') ? s.currentInt : s.maxInt; 
                 ctx.strokeStyle = '#fff'; ctx.lineWidth = 1/cam.zoom; ctx.beginPath(); ctx.moveTo(s.vx, s.vy); ctx.lineTo(boxX, boxY + 15/cam.zoom); ctx.stroke(); 
                 ctx.shadowColor="black"; ctx.shadowBlur=4; ctx.fillStyle = "#fff"; ctx.font = `bold ${14/cam.zoom}px "Oswald"`; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; 
-                let label = s.name; if(s.pref) label = `${s.pref.name} ${s.city.name} ${s.name}`; ctx.fillText(label, boxX, boxY); 
+                let label = s.name;
+                const pn = (s.pref && typeof s.pref === 'object') ? s.pref.name : (typeof s.pref === 'string' ? s.pref : '');
+                const cn = (s.city && typeof s.city === 'object') ? s.city.name : (typeof s.city === 'string' ? s.city : '');
+                if (pn && pn !== s.name) label = `${pn} ${label}`;
+                if (cn && cn !== s.name && cn !== pn) label = `${cn} ${label}`;
+                ctx.fillText(label, boxX, boxY); 
                 ctx.shadowBlur=2; ctx.font = `bold ${10/cam.zoom}px "Roboto Mono"`; ctx.fillStyle = "#ccc";
                 let infoLine1 = `ARV:${s.amp.toFixed(2)}  AVS:${Math.round(s.avs)}`; ctx.fillText(infoLine1, boxX, boxY + 12/cam.zoom);
                 let infoLine2 = `TCODE:${s.tcode || 'N/A'}`; ctx.fillText(infoLine2, boxX, boxY + 23/cam.zoom);
