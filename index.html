@@ -1767,6 +1767,7 @@ body {
         let isRegionIntMode = false;
         let isRegionIconVisible = true; 
         let regionMaxInts = new Map(); 
+        let lostContactAreas = new Set(); 
         let regionCenters = new Map(); 
         let regionIconAreas = []; 
         let settingsBackup = { st: true, plum: true };
@@ -2266,7 +2267,7 @@ body {
                 quake.cachedTargetInts[i] = calculateIntensity(mag, depth, distHypoDirect, st.amp, st.lat, st.lon, lat, lon, currentStrike, quake.isFault, ruptureStartRatio, st.avs);
             });
 
-            plumWarnedPrefs.clear(); forecastWarnedPrefs.clear(); plumTriggered = false; warnedAreas.clear(); stations.forEach(s => s.warnedS = false); strongWarnedAreas.clear();
+            plumWarnedPrefs.clear(); forecastWarnedPrefs.clear(); plumTriggered = false; warnedAreas.clear(); stations.forEach(s => s.warnedS = false); strongWarnedAreas.clear(); lostContactAreas.clear();
             if (disasterTimer) clearInterval(disasterTimer); disasterTimer = setInterval(reportDisaster, 8000);
             if (socialTimer) clearTimeout(socialTimer); socialTimer = setTimeout(socialLoop, 3000);
             if (chatTimer) clearTimeout(chatTimer); chatTimer = setTimeout(chatLoop, 2500);
@@ -2435,7 +2436,7 @@ body {
             regionMaxInts.clear(); document.getElementById('region-popup').style.display = 'none';
             stations.forEach(st => { st.currentInt = 0; st.maxInt = 0; st.simInt = 0; st.simMaxInt = 0; }); resetCamera(); isUserInteracting = false; selectedStation = null; 
             if(!isCustomMapLoaded || !isCustomStationLoaded) guideOverlay.classList.remove('hidden'); document.getElementById('report-content').innerHTML = '<div style="text-align:center; color:#666; padding:30px;"><div>等待事件…</div></div>'; esimGenerated = false; esimCanvas = null; isEsimVisible = false; 
-            plumWarnedPrefs.clear(); forecastWarnedPrefs.clear(); plumTriggered = false; warnedAreas.clear(); stations.forEach(s => s.warnedS = false); strongWarnedAreas.clear(); 
+            plumWarnedPrefs.clear(); forecastWarnedPrefs.clear(); plumTriggered = false; warnedAreas.clear(); stations.forEach(s => s.warnedS = false); strongWarnedAreas.clear(); lostContactAreas.clear(); 
             if (disasterTimer) { clearInterval(disasterTimer); disasterTimer = null; }
             if (socialTimer) { clearTimeout(socialTimer); socialTimer = null; }
             if (chatTimer) { clearTimeout(chatTimer); chatTimer = null; }
@@ -2879,6 +2880,18 @@ body {
                     }
                 });
             }
+            if (lostContactAreas.size > 0) {
+                lostContactAreas.forEach(key => {
+                    const path = prefPolygons[key];
+                    if (path) {
+                        ctx.fillStyle = "rgba(12, 12, 16, 0.88)";
+                        ctx.fill(path, 'evenodd');
+                        ctx.strokeStyle = "#ff3b3b";
+                        ctx.lineWidth = 2.0 / cam.zoom;
+                        ctx.stroke(path);
+                    }
+                });
+            }
 
             if(quake && !isRealDataMode && !isEsimVisible) {
                 quake.simulationTimeElapsed += dt_real * playSpeed;
@@ -2984,7 +2997,7 @@ body {
                     const smoothingFactor = Math.min(1.0, 0.2 * playSpeed); 
                     st.currentInt += (Math.max(0, limitedInt) - st.currentInt) * smoothingFactor; 
                     if (st.currentInt > st.maxInt) st.maxInt = st.currentInt;
-                    if (st.area && st.maxInt >= 4.5) { const sKey = st.area.name.replace(/\s+/g, ''); if (!strongWarnedAreas.has(sKey)) { strongWarnedAreas.add(sKey); playFutureAlarm(st.maxInt); } }
+                    if (st.area && st.maxInt >= 4.5) { const sKey = st.area.name.replace(/\s+/g, ''); if (!strongWarnedAreas.has(sKey)) { strongWarnedAreas.add(sKey); playFutureAlarm(st.maxInt); } if (st.maxInt >= 6.0) lostContactAreas.add(sKey); }
                     if(st.currentInt > maxIntObserved) maxIntObserved = st.currentInt;
 
 
@@ -3015,7 +3028,7 @@ body {
                         let limitedInt = applyShindoLimiter(finalInt);
                         st.simInt += (Math.max(0, limitedInt) - st.simInt) * Math.min(1.0, 0.2 * playSpeed);
                         if (st.simInt > st.simMaxInt) st.simMaxInt = st.simInt;
-                        if (st.area && st.simMaxInt >= 4.5) { const sKey = st.area.name.replace(/\s+/g, ''); if (!strongWarnedAreas.has(sKey)) { strongWarnedAreas.add(sKey); playFutureAlarm(st.simMaxInt); } }
+                        if (st.area && st.simMaxInt >= 4.5) { const sKey = st.area.name.replace(/\s+/g, ''); if (!strongWarnedAreas.has(sKey)) { strongWarnedAreas.add(sKey); playFutureAlarm(st.simMaxInt); } if (st.simMaxInt >= 6.0) lostContactAreas.add(sKey); }
                     }
                 }
 
@@ -3080,7 +3093,7 @@ body {
                         let limitedInt = applyShindoLimiter(finalInt);
                         st.simInt += (Math.max(0, limitedInt) - st.simInt) * Math.min(1.0, 0.2 * playSpeed);
                         if (st.simInt > st.simMaxInt) st.simMaxInt = st.simInt;
-                        if (st.area && st.simMaxInt >= 4.5) { const sKey = st.area.name.replace(/\s+/g, ''); if (!strongWarnedAreas.has(sKey)) { strongWarnedAreas.add(sKey); playFutureAlarm(st.simMaxInt); } }
+                        if (st.area && st.simMaxInt >= 4.5) { const sKey = st.area.name.replace(/\s+/g, ''); if (!strongWarnedAreas.has(sKey)) { strongWarnedAreas.add(sKey); playFutureAlarm(st.simMaxInt); } if (st.simMaxInt >= 6.0) lostContactAreas.add(sKey); }
                     }
                 }
                 for(let st of stations) if(st.currentInt > maxIntObserved) maxIntObserved = st.currentInt; 
