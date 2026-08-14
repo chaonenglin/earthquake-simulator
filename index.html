@@ -1876,24 +1876,24 @@ body {
             try {
                 faultPath = null;
                 updateLoading(10, '正在加载地图数据…');
-                const mapRes = await fetch(cfg.mapFile, { signal: AbortSignal.timeout(25000) });
+                const mapRes = await fetchWithRetry(cfg.mapFile);
                 if (mapRes.ok) processGeoJSON(await mapRes.json());
                 updateLoading(50, '地图加载完成');
                 updateLoading(55, '正在加载观测点数据…');
-                const stRes = await fetch(cfg.stationFile, { signal: AbortSignal.timeout(25000) });
+                const stRes = await fetchWithRetry(cfg.stationFile);
                 if (stRes.ok) processStationData(await stRes.json());
                 updateLoading(85, '观测点加载完成');
                 if (cfg.faultFile) {
                     updateLoading(88, '正在加载断层数据…');
-                    try { const fr = await fetch(cfg.faultFile, { signal: AbortSignal.timeout(25000) }); if (fr.ok) { processFaultData(await fr.json()); initMap(); } } catch(e) {}
+                    try { const fr = await fetchWithRetry(cfg.faultFile); if (fr && fr.ok) { processFaultData(await fr.json()); initMap(); } } catch(e) {}
                 }
                 epicenterFeatures = [];
                 if (cfg.epicFile) {
-                    try { const er = await fetch(cfg.epicFile, { signal: AbortSignal.timeout(25000) }); if (er.ok) { const ed = await er.json(); epicenterFeatures = ed.features || (ed.type === 'FeatureCollection' ? ed.features : [ed]); } } catch(e) {}
+                    try { const er = await fetchWithRetry(cfg.epicFile); if (er && er.ok) { const ed = await er.json(); epicenterFeatures = ed.features || (ed.type === 'FeatureCollection' ? ed.features : [ed]); } } catch(e) {}
                 }
                 fullHistoryData = []; filteredRealDataList = []; realDataOffset = 0;
                 if (cfg.histFile) {
-                    try { const hr = await fetch(cfg.histFile, { signal: AbortSignal.timeout(25000) }); if (hr.ok) fullHistoryData = await hr.json(); } catch(e) {}
+                    try { const hr = await fetchWithRetry(cfg.histFile); if (hr && hr.ok) fullHistoryData = await hr.json(); } catch(e) {}
                 }
                 if (fullHistoryData.length > 0) setRealDataSubMode('history'); else setRealDataSubMode('api');
                 filterRealData();
@@ -3593,7 +3593,7 @@ body {
             if (st && status) st.innerText = status;
         }
 
-        async function fetchWithRetry(url, timeoutMs = 25000, retries = 2) {
+        async function fetchWithRetry(url, timeoutMs = 90000, retries = 4) {
             for (let i = 0; i <= retries; i++) {
                 try {
                     const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
