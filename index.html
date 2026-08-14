@@ -3588,6 +3588,7 @@ body {
         }
 
         async function autoLoadEmbeddedData() {
+            const loadingEl = document.getElementById('loading');
             try {
                 sysLogger.log('SYS', '正在自动加载地图数据…');
                 updateLoading(8, '正在加载地图数据…');
@@ -3595,6 +3596,7 @@ body {
                 if (res.ok) {
                     const data = await res.json();
                     processGeoJSON(data);
+                    loadingEl.style.display = 'flex';
                     updateLoading(40, '地图加载完成');
                     // Hide map button on success
                     document.getElementById('btn-load-map').style.display = 'none';
@@ -3612,6 +3614,7 @@ body {
                 if (res.ok) {
                     const data = await res.json();
                     processStationData(data);
+                    loadingEl.style.display = 'flex';
                     updateLoading(75, '观测点加载完成');
                     // Hide station button on success
                     document.getElementById('btn-load-station').style.display = 'none';
@@ -3663,7 +3666,6 @@ body {
 
             // 兜底：无论加载结果如何，强制关闭 loading
             updateLoading(100, '加载完成');
-            const loadingEl = document.getElementById('loading');
             if (loadingEl) loadingEl.style.display = 'none';
         }
 
@@ -3863,7 +3865,7 @@ body {
         document.addEventListener('DOMContentLoaded', () => { 
             sysLogger.init(); 
             width = window.innerWidth; height = window.innerHeight; 
-            setTimeout(() => { autoLoadEmbeddedData(); initMap(); setTimeout(() => { const loading = document.getElementById('loading'); if(loading && loading.style.display !== 'none') loading.style.display = 'none'; }, 1000); }, 500); 
+            setTimeout(() => { autoLoadEmbeddedData(); initMap(); }, 500); 
         });
         window.draw = function() { };
 
