@@ -24,6 +24,9 @@
         .interactive { pointer-events: auto; }
 
         #loading { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #020203; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #00aaff; font-family: monospace; z-index: 9999; transition: opacity 0.5s; pointer-events: auto; }
+        #loading-progress { width: 220px; height: 6px; background: rgba(255,255,255,0.15); border-radius: 3px; margin-top: 14px; overflow: hidden; }
+        #loading-progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #00aaff, #4fd8ff); border-radius: 3px; transition: width 0.3s ease; }
+        #loading-status { font-size: 12px; color: #888; margin-top: 8px; letter-spacing: 1px; }
         .loader { border: 2px solid #111; border-top: 2px solid #00aaff; border-radius: 50%; width: 30px; height: 30px; animation: spin 0.8s linear infinite; margin-bottom: 10px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
@@ -1340,7 +1343,7 @@ body {
 
 </head>
 <body>
-    <div id="loading" onclick="this.style.display='none'"><div class="loader"></div><div>初始化中…</div></div>
+    <div id="loading" onclick="this.style.display='none'"><div class="loader"></div><div>初始化中…</div><div id="loading-progress"><div id="loading-progress-fill"></div></div><div id="loading-status">准备加载…</div></div>
     
     <div id="ui-layer">
         <div id="info-bar">
@@ -3568,13 +3571,22 @@ body {
         }
         window.addEventListener('resize', () => { width = window.innerWidth; height = window.innerHeight; initMap(); });
         
+        function updateLoading(percent, status) {
+            const fill = document.getElementById('loading-progress-fill');
+            const st = document.getElementById('loading-status');
+            if (fill) fill.style.width = percent + '%';
+            if (st && status) st.innerText = status;
+        }
+
         async function autoLoadEmbeddedData() {
             try {
                 sysLogger.log('SYS', '正在自动加载地图数据…');
+                updateLoading(8, '正在加载地图数据…');
                 const res = await fetch('japan.geo.json', { signal: AbortSignal.timeout(25000) }); 
                 if (res.ok) {
                     const data = await res.json();
                     processGeoJSON(data);
+                    updateLoading(40, '地图加载完成');
                     // Hide map button on success
                     document.getElementById('btn-load-map').style.display = 'none';
                 } else {
@@ -3586,10 +3598,12 @@ body {
 
             try {
                 sysLogger.log('SYS', '正在自动加载观测点数据…');
+                updateLoading(45, '正在加载观测点数据…');
                 const res = await fetch('stations_with_amp_revised.json', { signal: AbortSignal.timeout(25000) });
                 if (res.ok) {
                     const data = await res.json();
                     processStationData(data);
+                    updateLoading(75, '观测点加载完成');
                     // Hide station button on success
                     document.getElementById('btn-load-station').style.display = 'none';
                 } else {
@@ -3601,6 +3615,7 @@ body {
 
             try {
                 sysLogger.log('SYS', '正在自动加载震央地名数据…');
+                updateLoading(80, '正在加载震央地名数据…');
                 const res = await fetch('震央地名.geo.json', { signal: AbortSignal.timeout(25000) });
                 if (res.ok) {
                     const data = await res.json();
@@ -3616,6 +3631,7 @@ body {
             try {
                 const historyFileName = 'jma_all_quakes.json'; 
                 sysLogger.log('SYS', `Attempting to auto-load external history: ${historyFileName}`);
+                updateLoading(88, '正在加载历史地震数据…');
                 const response = await fetch(historyFileName, { signal: AbortSignal.timeout(25000) });
                 if (response.ok) {
                     const historyData = await response.json();
@@ -3637,6 +3653,7 @@ body {
             }
 
             // 兜底：无论加载结果如何，强制关闭 loading
+            updateLoading(100, '加载完成');
             const loadingEl = document.getElementById('loading');
             if (loadingEl) loadingEl.style.display = 'none';
         }
