@@ -3571,7 +3571,7 @@ body {
         async function autoLoadEmbeddedData() {
             try {
                 sysLogger.log('SYS', '正在自动加载地图数据…');
-                const res = await fetch('japan.geo.json'); 
+                const res = await fetch('japan.geo.json', { signal: AbortSignal.timeout(25000) }); 
                 if (res.ok) {
                     const data = await res.json();
                     processGeoJSON(data);
@@ -3586,7 +3586,7 @@ body {
 
             try {
                 sysLogger.log('SYS', '正在自动加载观测点数据…');
-                const res = await fetch('stations_with_amp_revised.json');
+                const res = await fetch('stations_with_amp_revised.json', { signal: AbortSignal.timeout(25000) });
                 if (res.ok) {
                     const data = await res.json();
                     processStationData(data);
@@ -3601,7 +3601,7 @@ body {
 
             try {
                 sysLogger.log('SYS', '正在自动加载震央地名数据…');
-                const res = await fetch('震央地名.geo.json');
+                const res = await fetch('震央地名.geo.json', { signal: AbortSignal.timeout(25000) });
                 if (res.ok) {
                     const data = await res.json();
                     epicenterFeatures = data.features || (data.type === 'FeatureCollection' ? data.features : [data]);
@@ -3616,7 +3616,7 @@ body {
             try {
                 const historyFileName = 'jma_all_quakes.json'; 
                 sysLogger.log('SYS', `Attempting to auto-load external history: ${historyFileName}`);
-                const response = await fetch(historyFileName);
+                const response = await fetch(historyFileName, { signal: AbortSignal.timeout(25000) });
                 if (response.ok) {
                     const historyData = await response.json();
                     if (Array.isArray(historyData) && historyData.length > 0) {
@@ -3635,6 +3635,10 @@ body {
             } catch (err) {
                 sysLogger.log('SYS', `External history auto-load skipped: ${err.message}`);
             }
+
+            // 兜底：无论加载结果如何，强制关闭 loading
+            const loadingEl = document.getElementById('loading');
+            if (loadingEl) loadingEl.style.display = 'none';
         }
 
         function showStructureManual() {
