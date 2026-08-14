@@ -1931,7 +1931,6 @@ body {
             bgCtx.strokeStyle = '#505560'; bgCtx.lineWidth = 1; bgCtx.stroke(japanPath);
             if (faultPath) { bgCtx.strokeStyle = 'rgba(200, 140, 70, 0.5)'; bgCtx.lineWidth = 0.7; bgCtx.stroke(faultPath); }
             
-            const loadingEl = document.getElementById('loading'); if(loadingEl) loadingEl.style.display = 'none';
             if(!window.isLooping) { window.isLooping = true; requestAnimationFrame(loop); }
             sysLogger.log('SYS', `Map initialized. Size: ${width}x${height}`);
         }
