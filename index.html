@@ -1580,7 +1580,7 @@ body {
 
                     <div class="c-row" style="margin-top:8px;"><div class="c-header"><span class="c-label">破裂起点</span><span id="d-rup" class="c-val">0.0（末端）</span></div><div class="c-input-group interactive"><input type="range" id="rup-start" min="0.0" max="1.0" step="0.1" value="0.0" oninput="updateDisplay()"></div></div>
                     <div class="func-row" style="margin-top:10px;"><button class="btn btn-reset interactive" onclick="resetSim(); switchTab('sim')">重置模拟</button></div>
-                    <div class="c-row"><div class="c-header"><span class="c-label">震级</span><span id="d-mag" class="c-val" style="color:#ff4444">7.6</span></div><div class="c-input-group interactive"><button class="btn btn-sm" onclick="adjustParam('mag', -0.1)">-</button><input type="range" id="mag" min="4.0" max="9.5" step="0.1" value="7.6" oninput="updateDisplay()"><button class="btn btn-sm" onclick="adjustParam('mag', 0.1)">+</button></div></div>
+                    <div class="c-row"><div class="c-header"><span class="c-label">震级</span><span id="d-mag" class="c-val" style="color:#ff4444">7.6</span></div><div class="c-input-group interactive"><button class="btn btn-sm" onclick="adjustParam('mag', -0.1)">-</button><input type="range" id="mag" min="4.0" max="100" step="0.1" value="7.6" oninput="updateDisplay()"><button class="btn btn-sm" onclick="adjustParam('mag', 0.1)">+</button></div></div>
                     <div class="c-row"><div class="c-header"><span class="c-label">深度</span><span id="d-dep" class="c-val" style="color:#00aaff">16km</span></div><div class="c-input-group interactive"><button class="btn btn-sm" onclick="adjustParam('depth', -10)">-</button><input type="range" id="depth" min="10" max="600" step="10" value="16" oninput="updateDisplay()"><button class="btn btn-sm" onclick="adjustParam('depth', 10)">+</button></div></div>
                     <div class="c-row"><div class="c-header"><span class="c-label">断层走向</span><span id="d-str" class="c-val" style="color:#eee">0°</span></div><div id="compass-area" class="interactive"><div id="compass-ring"><div class="compass-mark">N</div><div id="compass-needle"></div></div></div></div>
                     <div class="c-row">
@@ -2184,7 +2184,7 @@ body {
             }
             const finalArv = calculateNonLinearAmplification(pgvBed, avs, arv);
             const pgvSurf = pgvBed * finalArv;
-            let intensity = 2.68 + 1.72 * Math.log10(pgvSurf);
+            let intensity = 2.68 + 1.72 * Math.log10(pgvSurf); if (!isFinite(intensity)) intensity = 8.0;
             if (intensity > 7.5) intensity = 7.5 + (intensity - 7.5) * 0.1;
             return Math.max(0, intensity);
         }
@@ -2203,7 +2203,7 @@ body {
 
             sysLogger.log('SIM', `StartQuake: M${mag} D${depth}km @(${lat.toFixed(3)}, ${lon.toFixed(3)})`);
             initAudio(); const v = toVirtual(lon, lat);
-            let L_km = faultLenKm; if(L_km === 0 && mag >= 6.0) L_km = Math.pow(10, 0.6 * mag - 2.9); if(mag < 6.0) L_km = 0;
+            let L_km = faultLenKm; if(L_km === 0 && mag >= 6.0) L_km = Math.min(Math.pow(10, 0.6 * mag - 2.9), 20000); if(mag < 6.0) L_km = 0;
             
             const baseScale = V_SIZE / 2400; 
             const baseLatRad = 36 * Math.PI / 180;
@@ -2478,7 +2478,7 @@ body {
             if (!quake) return;
             isSimQuakeRunning = true;
             const mag = quake.mag, depth = quake.depth, lat = quake.lat, lon = quake.lon;
-            let L_km = (mag >= 6.0) ? Math.pow(10, 0.6 * mag - 2.9) : 0;
+            let L_km = (mag >= 6.0) ? Math.min(Math.pow(10, 0.6 * mag - 2.9), 20000) : 0;
             const baseScale = V_SIZE / 2400; 
             const baseLatRad = 36 * Math.PI / 180;
             const currentLatRad = lat * Math.PI / 180;
