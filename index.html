@@ -1872,22 +1872,28 @@ body {
             resetSim();
             const loadingEl = document.getElementById('loading');
             loadingEl.style.display = 'flex';
+            updateLoading(5, '正在切换区域…');
             try {
-                const mapRes = await fetch(cfg.mapFile);
+                updateLoading(10, '正在加载地图数据…');
+                const mapRes = await fetch(cfg.mapFile, { signal: AbortSignal.timeout(25000) });
                 if (mapRes.ok) processGeoJSON(await mapRes.json());
-                const stRes = await fetch(cfg.stationFile);
+                updateLoading(50, '地图加载完成');
+                updateLoading(55, '正在加载观测点数据…');
+                const stRes = await fetch(cfg.stationFile, { signal: AbortSignal.timeout(25000) });
                 if (stRes.ok) processStationData(await stRes.json());
+                updateLoading(85, '观测点加载完成');
                 faultPath = null;
                 if (cfg.faultFile) {
-                    try { const fr = await fetch(cfg.faultFile); if (fr.ok) processFaultData(await fr.json()); } catch(e) {}
+                    updateLoading(88, '正在加载断层数据…');
+                    try { const fr = await fetch(cfg.faultFile, { signal: AbortSignal.timeout(25000) }); if (fr.ok) processFaultData(await fr.json()); } catch(e) {}
                 }
                 epicenterFeatures = [];
                 if (cfg.epicFile) {
-                    try { const er = await fetch(cfg.epicFile); if (er.ok) { const ed = await er.json(); epicenterFeatures = ed.features || (ed.type === 'FeatureCollection' ? ed.features : [ed]); } } catch(e) {}
+                    try { const er = await fetch(cfg.epicFile, { signal: AbortSignal.timeout(25000) }); if (er.ok) { const ed = await er.json(); epicenterFeatures = ed.features || (ed.type === 'FeatureCollection' ? ed.features : [ed]); } } catch(e) {}
                 }
                 fullHistoryData = []; filteredRealDataList = []; realDataOffset = 0;
                 if (cfg.histFile) {
-                    try { const hr = await fetch(cfg.histFile); if (hr.ok) fullHistoryData = await hr.json(); } catch(e) {}
+                    try { const hr = await fetch(cfg.histFile, { signal: AbortSignal.timeout(25000) }); if (hr.ok) fullHistoryData = await hr.json(); } catch(e) {}
                 }
                 if (fullHistoryData.length > 0) setRealDataSubMode('history'); else setRealDataSubMode('api');
                 filterRealData();
@@ -1898,10 +1904,13 @@ body {
                     else { jpPresets.style.display = 'block'; cnPresets.style.display = 'none'; }
                 }
                 resetCamera();
+                updateLoading(100, '加载完成');
+                loadingEl.style.display = 'none';
                 const btn = document.getElementById('btn-switch-region');
                 if (btn) btn.innerText = region === 'japan' ? '🇨🇳 切换中国' : '🇯🇵 切换日本';
                 sysLogger.log('SYS', '已切换区域：' + region);
             } catch (e) {
+                updateLoading(100, '加载完成');
                 loadingEl.style.display = 'none';
                 sysLogger.error('E-REGION', '切换区域失败', e);
             }
