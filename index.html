@@ -1950,6 +1950,7 @@ body {
                 setTimeout(() => { 
                     try { 
                         processGeoJSON(safeJsonParse(e.target.result)); 
+                        document.getElementById('loading').style.display = 'none';
                         // Hide button on success
                         document.getElementById('btn-load-map').style.display = 'none';
                     } catch(err) { 
@@ -1982,7 +1983,7 @@ body {
                     count++;
                 });
             });
-            document.getElementById('loading').style.display = 'none'; if(count === 0) { const msg = "无有效多边形"; sysLogger.error('E-FILE-002', msg, null); return; }
+            if(count === 0) { const msg = "无有效多边形"; sysLogger.error('E-FILE-002', msg, null); return; }
             japanPath = newPath; isCustomMapLoaded = true; 
             initMap(); checkAllLoaded();
             sysLogger.log('SYS', `Map loaded: ${count} polygons processed.`);
@@ -1996,6 +1997,7 @@ body {
                 setTimeout(() => { 
                     try { 
                         processStationData(safeJsonParse(e.target.result)); 
+                        document.getElementById('loading').style.display = 'none';
                         // Hide button on success
                         document.getElementById('btn-load-station').style.display = 'none';
                     } catch(err) { 
@@ -2057,7 +2059,6 @@ body {
                 }
                 if(neighbors.length > 0) neighborMap.set(s1.code, neighbors);
             }
-            document.getElementById('loading').style.display = 'none'; 
             isCustomStationLoaded = true; 
             resetSim(); switchTab('sim'); checkAllLoaded();
             sysLogger.log('SYS', `Station data loaded: ${stations.length} points.`);
