@@ -2615,7 +2615,7 @@ body {
             }
             if (kind === 'casualty') {
                 return {
-                    system: '你是地震灾害损失评估专家。根据已经受灾的区域及其震度，预估人口伤亡和财产损失。评估时务必考虑区域类型：' + cityList + '的城区人口密度高、经济总量大，同等震度下伤亡和损失比中小城市高 1~2 个数量级。参考量级：一二线城市核心区震度7 → 损失数万亿元、伤亡数万至数十万；震度6强 → 损失数千亿元、伤亡数千至数万；震度6弱 → 损失数百亿元、伤亡数百至数千；中小城市或农村震度5~6 → 损失数十至数百亿元、伤亡数十至数百。只输出 JSON：{"deaths":"约X人","injuries":"约X人","loss":"约X亿元"}',
+                    system: '你是地震灾害损失评估专家。根据已经受灾的区域及其震度，预估人口伤亡和财产损失。评估时务必考虑区域类型：' + cityList + '的城区人口密度高、经济总量大，同等震度下伤亡和损失比中小城市高 1~2 个数量级。参考量级：一二线城市核心区震度7 → 损失数万亿元、伤亡数万至数十万；震度6强 → 损失数千亿元、伤亡数千至数万；震度6弱 → 损失数百亿元、伤亡数百至数千；中小城市或农村震度5~6 → 损失数十至数百亿元、伤亡数十至数百。标注「失联·按全毁计」的区域为震中极震区：通讯电力中断、房屋基本全部损毁、伤亡极重，须按最严重情况估算。只输出 JSON：{"deaths":"约X人","injuries":"约X人","loss":"约X亿元"}',
                     user: '已受灾区域及震度：' + (d.affectedDetail || '暂无受灾区域'),
                 };
             }
@@ -2705,7 +2705,7 @@ body {
             }
             if (affected.size === 0) { casualtyTimer = setTimeout(casualtyLoop, 5000); return; }
             const sorted = Array.from(affected.entries()).sort((a, b) => b[1] - a[1]);
-            const affectedDetail = sorted.map(([n, i]) => n + getIntName(i)).join('、');
+            const affectedDetail = sorted.map(([n, i]) => (i >= 6.0 ? n + getIntName(i) + '（失联·按全毁计）' : n + getIntName(i))).join('、');
             aiCall('casualty', { affectedDetail })
                 .then(res => {
                     if (res) {
